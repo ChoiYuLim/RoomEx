@@ -2,12 +2,16 @@ package com.yulim.roomex
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.room.Room
 import com.yulim.roomex.database.UserDatabase
 import com.yulim.roomex.database.UserDto
 import com.yulim.roomex.databinding.ActivityMainBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
+
     private lateinit var binding: ActivityMainBinding
     private lateinit var db: UserDatabase
 
@@ -16,14 +20,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // 싱글톤 패턴을 사용하지 않은 경우
-        db = Room.databaseBuilder(
-            applicationContext,
-            UserDatabase::class.java,
-            "user-database"
-        ).allowMainThreadQueries() // 그냥 강제로 실행
-            .build()
-
+        db = UserDatabase.getInstance(applicationContext)!!
         refreshUserList()
 
         binding.btnSave.setOnClickListener {
@@ -37,17 +34,23 @@ class MainActivity : AppCompatActivity() {
         var age = binding.etAge.text.toString()
         var phone = binding.etPhone.text.toString()
 
-        db.userDao().insert(UserDto(name, age, phone))
+        CoroutineScope(Dispatchers.IO).launch {
+            db.userDao().insert(UserDto(name, age, phone))
+        }
     }
 
     private fun refreshUserList() {
         var userList = "유저 리스트\n"
 
-        val users = db.userDao().getAll()
+        CoroutineScope(Dispatchers.Main).launch {
+            val users = CoroutineScope(Dispatchers.IO).async {
+                db.userDao().getAll()
+            }.await()
 
-        for (user in users) {
-            userList += "이름: ${user.name}, 나이: ${user.age}, 번호: ${user.phone}\n"
+            for (user in users) {
+                userList += "이름: ${user.name}, 나이: ${user.age}, 번호: ${user.phone}\n"
+            }
+            binding.tvPerson.text = userList
         }
-        binding.tvPerson.text = userList
     }
 }

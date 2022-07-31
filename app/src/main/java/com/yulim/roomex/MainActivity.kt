@@ -1,11 +1,53 @@
 package com.yulim.roomex
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
+import androidx.room.Room
+import com.yulim.roomex.database.UserDatabase
+import com.yulim.roomex.database.UserDto
+import com.yulim.roomex.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
+    private lateinit var db: UserDatabase
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        // 싱글톤 패턴을 사용하지 않은 경우
+        db = Room.databaseBuilder(
+            applicationContext,
+            UserDatabase::class.java,
+            "user-database"
+        ).allowMainThreadQueries() // 그냥 강제로 실행
+            .build()
+
+        refreshUserList()
+
+        binding.btnSave.setOnClickListener {
+            addUser()
+            refreshUserList()
+        }
+    }
+
+    private fun addUser() {
+        var name = binding.etName.text.toString()
+        var age = binding.etAge.text.toString()
+        var phone = binding.etPhone.text.toString()
+
+        db.userDao().insert(UserDto(name, age, phone))
+    }
+
+    private fun refreshUserList() {
+        var userList = "유저 리스트\n"
+
+        val users = db.userDao().getAll()
+
+        for (user in users) {
+            userList += "이름: ${user.name}, 나이: ${user.age}, 번호: ${user.phone}\n"
+        }
+        binding.tvPerson.text = userList
     }
 }
